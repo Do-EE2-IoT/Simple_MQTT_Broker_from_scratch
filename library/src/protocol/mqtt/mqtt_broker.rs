@@ -9,7 +9,6 @@ pub enum BrokerMessage {
     Subscribe {
         id: usize,
         topic: String,
-        qos: u8,
     },
     Publish {
         topic: String,
@@ -25,8 +24,8 @@ pub enum BrokerMessage {
 }
 
 pub struct Broker {
-    subscriber: HashMap<String, Vec<usize>>,
-    clients: HashMap<usize, Sender<String>>,
+    pub subscriber: HashMap<String, Vec<usize>>,
+    pub clients: HashMap<usize, Sender<String>>,
     pub rx_broker: Receiver<BrokerMessage>,
 }
 
