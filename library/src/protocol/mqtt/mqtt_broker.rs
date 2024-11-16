@@ -1,3 +1,4 @@
+use crate::message_processor::MqttMessage;
 use std::{
     collections::{HashMap, HashSet},
     fmt::format,
@@ -25,7 +26,7 @@ pub enum BrokerMessage {
 
 pub struct Broker {
     pub subscriber: HashMap<String, Vec<usize>>,
-    pub clients: HashMap<usize, Sender<String>>,
+    pub clients: HashMap<usize, Sender<MqttMessage>>,
     pub rx_broker: Receiver<BrokerMessage>,
 }
 
@@ -44,13 +45,13 @@ impl Broker {
             .or_default()
             .push(client_id);
         let _ = self.clients.get(&client_id).map(|tx| {
-            tx.send(format!(
-                "Get request from Client id {client_id} sub topic: {topic}"
-            ))
+            tx.send(MqttMessage::Subscribe {
+                topic: topic.to_string(),
+            })
         });
         Ok(())
     }
-    pub fn add_client(&mut self, client_id: usize, tx_client: Sender<String>) -> io::Result<()> {
+    pub fn add_client(&mut self, client_id: usize, tx_client: Sender<MqttMessage>) -> io::Result<()> {
         self.clients.insert(client_id, tx_client);
         Ok(())
     }
