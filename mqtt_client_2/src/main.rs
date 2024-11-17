@@ -10,26 +10,26 @@ async fn main() {
         .await
         .unwrap();
     let data = bincode::serialize(&MqttMessage::Subscribe {
-        topic: "/hello".to_string(),
+        topic: "/count_now".to_string(),
     })
     .unwrap();
     socket.send(data).await.unwrap();
     let data = socket.read().await.unwrap();
     let get_data: MqttMessage = bincode::deserialize(&data).unwrap();
     println!("Get respond from broker : {:?}", get_data);
-    let mut counter = 0;
+
     loop {
-        let message_content = format!("{counter}");
-        counter += 1;
+        let data = socket.read().await.unwrap();
+        let get_data: MqttMessage = bincode::deserialize(&data).unwrap();
+        println!("Get respond from broker : {:?}", get_data);
         let data = bincode::serialize(&MqttMessage::Publish {
-            topic: "/count_now".to_string(),
+            topic: "/hello".to_string(),
             qos: 0,
-            message: message_content,
+            message: "Hello from client 2".to_string(),
         })
         .unwrap();
         sleep(Duration::from_secs(2)).await;
 
         socket.send(data).await.unwrap();
-       
     }
 }

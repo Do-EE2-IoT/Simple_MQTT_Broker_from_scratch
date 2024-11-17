@@ -426,6 +426,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mqtt_client_2"
+version = "0.1.0"
+dependencies = [
+ "library",
+]
+
+[[package]]
 name = "object"
 version = "0.36.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"

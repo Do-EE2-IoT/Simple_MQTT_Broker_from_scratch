@@ -11,19 +11,32 @@ async fn client_handle(
     mut tcp: ServerStreamHandler,
     mut rx_client: Receiver<MqttMessage>,
     tx_broker: Sender<BrokerMessage>,
+    clientid: usize,
 ) -> io::Result<()> {
     loop {
         tokio::select! {
             data =tcp.get_request() => {
                 match data{
                     Ok(data_from_client) => {
-                        let data: MqttMessage = bincode::deserialize(&data_from_client).unwrap();
-                        println!("{:?}",data);
-                        //let data = BrokerMessage::Subscribe { id: data, topic: data };
-                        // tx_broker.send(&data).await.unwrap();
 
+                        if let Ok(data) =  bincode::deserialize(&data_from_client){
+                        match data {
+                            MqttMessage:: Subscribe{topic}=>{ tx_broker.send(BrokerMessage::Subscribe { id: clientid, topic: topic.to_string() }).await.unwrap();} ,
+                            MqttMessage:: Publish{topic, qos, message}=>{
+                                tx_broker.send(BrokerMessage::Publish { topic: topic.to_string(), message: message.to_string(), qos }).await.unwrap();
+                            } ,
+                            MqttMessage::Ping=> todo!(),
+                            MqttMessage::Disconnect =>todo!(),
+
+                        }
+                    }else {
+                        println!("Can't deserialize message from client");
+                    }
                     },
-                    Err(e) => todo!(),
+                    Err(_) => {
+                        println!("Client {clientid} disconnected");
+                        break;
+                    },
                 }
 
             },
@@ -31,11 +44,20 @@ async fn client_handle(
             data = rx_client.recv()=> {
                match data{
                     Some( MqttMessage::Subscribe { topic } )=> {
-                        println!("Send topic to client");
                         let data = bincode::serialize(&MqttMessage::Subscribe { topic }).unwrap();
-                        tcp.respond(data).await.unwrap();
+                        if let Err(e) = tcp.respond(data).await{
+                            println!("Can't send to client");
+                        }
                     },
-                    Some(MqttMessage::Publish{ topic, qos, message })=>{},
+                    Some(MqttMessage::Publish{ topic, qos, message })=>{
+                        let data = bincode::serialize(&MqttMessage::Publish { topic, qos, message }).unwrap();
+                        if let Err(e) = tcp.respond(data).await{
+                            println!("Can't send to client");
+                        }
+                    },
+
+                    Some(MqttMessage::Ping)=> todo!(),
+                    Some(MqttMessage::Disconnect) => todo!(),
                     None=> {},
                }
             }
@@ -62,7 +84,7 @@ async fn main() {
                 let (tx_client,rx_client):(Sender<MqttMessage>, Receiver<MqttMessage>) =  tokio::sync::mpsc::channel(100);
                 broker.clients.insert(client_id, tx_client.clone());
                 let borrow_tx_broker = tx_broker.clone();
-                tokio::spawn(async move {client_handle(tcp, rx_client, borrow_tx_broker).await});
+                tokio::spawn(async move {client_handle(tcp, rx_client, borrow_tx_broker, client_id).await});
             }
 
             Some(broker_message) = broker.rx_broker.recv() => {
@@ -78,8 +100,32 @@ async fn main() {
                         }
                     }
                     BrokerMessage::Publish { topic, message, qos } => {
-                        println!("Publishing to topic '{}': {} - qos{}", topic, message, qos);
-                        todo!()
+                        println!("a client publishing to topic '{}': {} - qos{}", topic, message, qos);
+                        let get_clients_sub = broker.subscriber.get(topic.as_str());
+                        match get_clients_sub{
+                            Some(clients)=> {
+                                for clientid in clients.iter(){
+                                    if qos == 0 {
+                                    if let Some(tx_client) = broker.clients.get(clientid){
+                                          if let Err(e) =  tx_client.send(MqttMessage::Publish { topic: topic.to_string(), qos, message: message.to_string() }).await{
+                                            println!("{e}");
+                                          }
+                                    }else if qos == 1 {
+                                        todo!();
+                                    }
+                                    else if qos == 2{
+                                        todo!();
+                                    }else {
+                                        println!("broker not support this qos");
+                                    }
+                                }
+                                }
+                            },
+                            None=> println!("Dont have any client sub this topic"),
+                        }
+
+
+
                     }
                     BrokerMessage::Ping { id } => {
                         println!("Ping received from client {}", id);

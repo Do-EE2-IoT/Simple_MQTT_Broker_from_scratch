@@ -44,14 +44,13 @@ impl Broker {
             .entry(topic.to_string())
             .or_default()
             .push(client_id);
-        let _ = self.clients.get(&client_id).map(|tx| {
-            tx.send(MqttMessage::Subscribe {
-                topic: topic.to_string(),
-            })
-        });
         Ok(())
     }
-    pub fn add_client(&mut self, client_id: usize, tx_client: Sender<MqttMessage>) -> io::Result<()> {
+    pub fn add_client(
+        &mut self,
+        client_id: usize,
+        tx_client: Sender<MqttMessage>,
+    ) -> io::Result<()> {
         self.clients.insert(client_id, tx_client);
         Ok(())
     }

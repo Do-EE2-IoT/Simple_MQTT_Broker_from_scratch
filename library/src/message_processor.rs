@@ -1,8 +1,6 @@
-
 pub use bincode;
 pub use serde;
 use serde::{Deserialize, Serialize};
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum MqttMessage {
@@ -15,4 +13,6 @@ pub enum MqttMessage {
     Subscribe {
         topic: String,
     },
+    Ping,
+    Disconnect,
 }
