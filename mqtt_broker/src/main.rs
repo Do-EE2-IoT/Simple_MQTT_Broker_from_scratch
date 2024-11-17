@@ -1,4 +1,7 @@
+use std::collections::HashMap;
 use std::io;
+
+use crate::tokio::task::JoinHandle;
 
 use library::message_processor::bincode;
 use library::message_processor::MqttMessage;
@@ -34,7 +37,6 @@ async fn client_handle(
                                  tx_broker.send(BrokerMessage::disconnect(clientid)).await.unwrap()},
                             }
                         }else {
-                            println!("Can't deserialize message from client");
                             break;
                         }
                     },Err(_) => {
@@ -86,7 +88,6 @@ async fn main() {
     let (tx_broker, rx_broker): (Sender<BrokerMessage>, Receiver<BrokerMessage>) =
         tokio::sync::mpsc::channel(100);
     let mut broker = mqtt_broker::Broker::new(rx_broker);
-
     loop {
         tokio::select! {
             Ok(tcp) = ServerStreamHandler::new_socket(&listener) => {
@@ -96,6 +97,7 @@ async fn main() {
                 broker.clients.insert(client_id, tx_client.clone());
                 let borrow_tx_broker = tx_broker.clone();
                 tokio::spawn(async move {client_handle(tcp, rx_client, borrow_tx_broker, client_id).await});
+
             }
 
             Some(broker_message) = broker.rx_broker.recv() => {
@@ -148,7 +150,6 @@ async fn main() {
                     BrokerMessage::Disconnect { id } => {
                         println!("Client {} disconnected", id);
                         broker.clients.remove(&id);
-                        // Destroy one thread
                     },
                 }
             }

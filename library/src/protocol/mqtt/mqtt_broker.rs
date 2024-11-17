@@ -37,7 +37,7 @@ impl BrokerMessage {
     }
 
     pub fn ping(id: usize) -> Self {
-        BrokerMessage::Ping{ id }
+        BrokerMessage::Ping { id }
     }
 
     pub fn disconnect(id: usize) -> Self {
@@ -75,4 +75,5 @@ impl Broker {
         self.clients.insert(client_id, tx_client);
         Ok(())
     }
+
 }

@@ -19,13 +19,17 @@ async fn main() {
         tokio::select! {
             input =console_input.pop() => {
                  match input{
-                    UserRequest::Publish => {},
+                    UserRequest::Publish => {
+                        let get_mqtt_pub_req = console_input.pop_mqtt_req().await;
+
+                    },
                     UserRequest::Subscribe => {},
                     UserRequest::Disconnect => {
                         let disconnect_request = bincode::serialize(&MqttMessage::Disconnect).unwrap();
                         if let Err(e) = socket.send(disconnect_request).await {
                               println!("Cannot ping because of error {e}");
                         }
+                        break;
 
                     },
                  }
@@ -37,7 +41,7 @@ async fn main() {
                       println!("Cannot ping because of error {e}");
                 }
 
-                match timeout(Duration::from_secs(5), socket.read()).await {
+                match timeout(Duration::from_millis(100), socket.read()).await {
                     Ok(Ok(data)) => {
                        let ping_respond: MqttMessage = bincode::deserialize(&data).unwrap();
                        if ping_respond == MqttMessage::Ping{
@@ -60,26 +64,3 @@ async fn main() {
         }
     }
 }
-
-// let data = bincode::serialize(&MqttMessage::Subscribe {
-//     topic: "/hello".to_string(),
-// })
-// .unwrap();
-// socket.send(data).await.unwrap();
-// let data = socket.read().await.unwrap();
-// let get_data: MqttMessage = bincode::deserialize(&data).unwrap();
-// println!("Get respond from broker : {:?}", get_data);
-// let mut counter = 0;
-// loop {
-//     let message_content = format!("{counter}");
-//     counter += 1;
-//     let data = bincode::serialize(&MqttMessage::Publish {
-//         topic: "/count_now".to_string(),
-//         qos: 0,
-//         message: message_content,
-//     })
-//     .unwrap();
-//     sleep(Duration::from_secs(2)).await;
-
-//     socket.send(data).await.unwrap();
-// }
