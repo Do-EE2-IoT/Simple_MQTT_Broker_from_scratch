@@ -1,5 +1,5 @@
+use library::input::ConsoleInput;
 use library::input::Input;
-use library::input::{ConsoleInput, UserRequest};
 use library::message_processor::bincode;
 use library::message_processor::MqttMessage;
 use library::tcp_stream_handler::client::ClientStreamHandler;
@@ -19,29 +19,31 @@ async fn main() {
         tokio::select! {
             input =console_input.pop() => {
                  match input{
-                    UserRequest::Publish => {
-                        let get_mqtt_pub_req = console_input.pop_mqtt_req().await;
-
-                    },
-                    UserRequest::Subscribe => {},
-                    UserRequest::Disconnect => {
-                        let disconnect_request = bincode::serialize(&MqttMessage::Disconnect).unwrap();
-                        if let Err(e) = socket.send(disconnect_request).await {
-                              println!("Cannot ping because of error {e}");
+                    MqttMessage::Publish{topic, qos, message} => {
+                        let data = bincode::serialize(&MqttMessage::pub_message(&topic, qos,&message)).unwrap();
+                        println!("Pub herre");
+                        if let Err(e) = socket.send(data).await{
+                            println!("Error : {e}");
                         }
-                        break;
-
                     },
+                    MqttMessage::Subscribe{topic} =>{
+                        let data = bincode::serialize(&MqttMessage::sub(&topic)).unwrap();
+                        if let Err(e) = socket.send(data).await{
+                            println!("Error : {e}");
+                        }
+                    },
+                    _ => println!("Invalid command"),
                  }
-            },
-            _ = sleep(Duration::from_secs(10)) => {
+                }
+            ,
+            _ = sleep(Duration::from_secs(30)) => {
                 println!("Start send ping to mqtt broker");
                 let ping_request = bincode::serialize(&MqttMessage::Ping).unwrap();
                 if let Err(e) = socket.send(ping_request).await {
                       println!("Cannot ping because of error {e}");
                 }
 
-                match timeout(Duration::from_millis(100), socket.read()).await {
+                match timeout(Duration::from_millis(30), socket.read()).await {
                     Ok(Ok(data)) => {
                        let ping_respond: MqttMessage = bincode::deserialize(&data).unwrap();
                        if ping_respond == MqttMessage::Ping{
@@ -59,6 +61,22 @@ async fn main() {
 
                 }
             },
+
+            get_data = socket.read()=> {
+                 if let Ok(data) = get_data{
+                     let data: MqttMessage = bincode::deserialize(&data).unwrap();
+                     match data{
+                        MqttMessage::Publish{topic, qos, message} => {
+                            println!("topic: {topic}, qos: {qos}");
+                            println!("message: {message}");
+                        },
+                        MqttMessage::Subscribe { topic } => {
+                            println!("Successfully subscribe to topic: {topic}");
+                        },
+                        _ => todo!(),
+                     }
+                 }
+            }
 
 
         }

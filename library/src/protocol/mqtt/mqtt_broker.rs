@@ -61,6 +61,7 @@ impl Broker {
     }
 
     pub fn add_subscriber(&mut self, client_id: usize, topic: &str) -> io::Result<()> {
+        println!("Client {client_id} subscribe topic {topic}");
         self.subscriber
             .entry(topic.to_string())
             .or_default()
