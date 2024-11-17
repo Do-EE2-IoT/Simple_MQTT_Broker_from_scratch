@@ -37,7 +37,7 @@ impl BrokerMessage {
     }
 
     pub fn ping(id: usize) -> Self {
-        BrokerMessage::Disconnect { id }
+        BrokerMessage::Ping{ id }
     }
 
     pub fn disconnect(id: usize) -> Self {

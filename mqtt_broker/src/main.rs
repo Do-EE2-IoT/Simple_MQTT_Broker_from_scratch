@@ -30,14 +30,15 @@ async fn client_handle(
                                     tx_broker.send(BrokerMessage::pub_message(&topic,qos, &message)).await.unwrap();
                                 },
                                 MqttMessage::Ping => tx_broker.send(BrokerMessage::ping(clientid)).await.unwrap(),
-                                MqttMessage::Disconnect => tx_broker.send(BrokerMessage::disconnect(clientid)).await.unwrap(),
-
+                                MqttMessage::Disconnect =>{
+                                 tx_broker.send(BrokerMessage::disconnect(clientid)).await.unwrap()},
                             }
                         }else {
                             println!("Can't deserialize message from client");
+                            break;
                         }
                     },Err(_) => {
-                        println!("Client {clientid} disconnected");
+                        println!("...");
                         break;
                     },
                 }
@@ -65,11 +66,13 @@ async fn client_handle(
                         let data = bincode::serialize(&MqttMessage::Ping).unwrap();
                         if let Err(_e) = tcp.respond(data).await {
                             println!("Can't send to client");
-                            }
+                        }
                     },
-                    Some(MqttMessage::Disconnect) => todo!()
-                    ,None => todo!()
+                    Some(MqttMessage::Disconnect) => {}
                     ,
+                    None => {}
+                    ,
+
                 }
             }
         }
@@ -106,7 +109,7 @@ async fn main() {
                                 println!("Error send {e}");
                             }
                         }
-                    }
+                    },
                     BrokerMessage::Publish { topic, message, qos } => {
                         println!("a client publishing to topic '{}': {} - qos{}", topic, message, qos);
                         let get_clients_sub = broker.subscriber.get(topic.as_str());
@@ -134,7 +137,7 @@ async fn main() {
 
 
 
-                    }
+                    },
                     BrokerMessage::Ping { id } => {
                         println!("Get Ping from client {id}");
                          let get_tx_client = broker.clients.get(&id);
@@ -143,12 +146,11 @@ async fn main() {
                             None=> todo!(),
                         }
 
-                    }
+                    },
                     BrokerMessage::Disconnect { id } => {
                         println!("Client {} disconnected", id);
                         broker.clients.remove(&id);
-                        todo!()
-                    }
+                    },
                 }
             }
         }

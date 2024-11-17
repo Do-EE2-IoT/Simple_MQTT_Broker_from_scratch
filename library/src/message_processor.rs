@@ -2,7 +2,7 @@ pub use bincode;
 pub use serde;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum MqttMessage {
     Publish {
         topic: String,
