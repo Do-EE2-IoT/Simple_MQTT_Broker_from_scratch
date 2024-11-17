@@ -21,7 +21,13 @@ async fn main() {
                  match input{
                     UserRequest::Publish => {},
                     UserRequest::Subscribe => {},
-                    UserRequest::Disconnect => {},
+                    UserRequest::Disconnect => {
+                        let disconnect_request = bincode::serialize(&MqttMessage::Disconnect).unwrap();
+                        if let Err(e) = socket.send(disconnect_request).await {
+                              println!("Cannot ping because of error {e}");
+                        }
+
+                    },
                  }
             },
             _ = sleep(Duration::from_secs(10)) => {

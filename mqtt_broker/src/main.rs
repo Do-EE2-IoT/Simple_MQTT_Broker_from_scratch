@@ -140,16 +140,15 @@ async fn main() {
                     },
                     BrokerMessage::Ping { id } => {
                         println!("Get Ping from client {id}");
-                         let get_tx_client = broker.clients.get(&id);
-                        match get_tx_client{
-                            Some(tx_client) => tx_client.send(MqttMessage::Ping).await.unwrap(),
-                            None=> todo!(),
+                        if let Some(tx_client) = broker.clients.get(&id){
+                            tx_client.send(MqttMessage::Ping).await.unwrap();
                         }
 
                     },
                     BrokerMessage::Disconnect { id } => {
                         println!("Client {} disconnected", id);
                         broker.clients.remove(&id);
+                        // Destroy one thread
                     },
                 }
             }
