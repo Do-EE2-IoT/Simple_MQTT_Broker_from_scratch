@@ -9,7 +9,7 @@ pub struct ConsoleInput {
 
 #[async_trait::async_trait]
 pub trait Input {
-    async fn pop(&mut self) -> MqttMessage;
+    async fn pop(&mut self) -> io::Result<MqttMessage>;
 }
 
 impl FromStr for MqttMessage {
@@ -26,24 +26,31 @@ impl FromStr for MqttMessage {
             match command.as_str() {
                 "pub" => {
                     if parts.len() < 4 {
-                        Err("Need at least 4 input: pub topic_name qos payload".to_string())
-                    } else {
-                        let topic = parts[1].to_string();
-                        let qos = parts[2]
-                            .parse::<u8>()
-                            .map_err(|_| "Not a valiid number".to_string())
-                            .and_then(|value| {
-                                if value <= 2 {
-                                    Ok(value)
-                                } else {
-                                    Err("Invalid QoS: must be 0, 1".to_string())
-                                }
-                            })?;
-
-                        let payload = parts[3].to_string();
-                        Ok(MqttMessage::pub_message(&topic, qos, &payload))
+                        return Err(
+                            "Need at least 4 inputs: pub topic_name qos message".to_string()
+                        );
                     }
+
+                    let topic = parts[1].to_string();
+
+                    // Parse QoS
+                    let qos = parts[2]
+                        .parse::<u8>()
+                        .map_err(|_| "Not a valid number".to_string())
+                        .and_then(|value| {
+                            if value <= 2 {
+                                Ok(value)
+                            } else {
+                                Err("Invalid QoS: must be 0, 1, or 2".to_string())
+                            }
+                        })?;
+
+                    // Combine the rest as the message
+                    let message = parts[3..].join(" ");
+
+                    Ok(MqttMessage::pub_message(&topic, qos, &message))
                 }
+
                 "sub" => {
                     if parts.len() < 2 {
                         Err("Need at least 2 input: sub topic".to_string())
@@ -52,6 +59,7 @@ impl FromStr for MqttMessage {
                         Ok(MqttMessage::sub(&topic))
                     }
                 }
+                "disconnect" => Ok(MqttMessage::Disconnect),
                 _ => Err("Command invalid".to_string()),
             }
         }
@@ -60,15 +68,16 @@ impl FromStr for MqttMessage {
 
 #[async_trait::async_trait]
 impl Input for ConsoleInput {
-    async fn pop(&mut self) -> MqttMessage {
+    async fn pop(&mut self) -> io::Result<MqttMessage> {
         let stdin = tokio::io::stdin();
         let mut reader = BufReader::new(stdin);
-
         loop {
-            self.buffer.clear();
             match reader.read_line(&mut self.buffer).await {
-                Ok(_) => match MqttMessage::from_str(self.buffer.trim()) {
-                    Ok(item) => break item,
+                Ok(_) => match MqttMessage::from_str(self.buffer.trim_end()) {
+                    Ok(item) => {
+                        self.buffer.clear();
+                        break Ok(item);
+                    }
                     Err(err) => {
                         println!("Error --- {}", err);
                     }

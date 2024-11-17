@@ -4,24 +4,34 @@ use library::message_processor::bincode;
 use library::message_processor::MqttMessage;
 use library::tcp_stream_handler::client::ClientStreamHandler;
 use library::tcp_stream_handler::tokio;
+use library::tcp_stream_handler::tokio::sync::mpsc;
+use library::tcp_stream_handler::tokio::sync::mpsc::{Receiver, Sender};
 use library::tcp_stream_handler::tokio::time::{sleep, timeout, Duration};
 
+async fn console_input_handle(tx: Sender<MqttMessage>) {
+    let mut console_input = ConsoleInput {
+        buffer: String::new(),
+    };
+    while let Ok(data) = console_input.pop().await {
+        if let Err(e) = tx.send(data).await {
+            println!("Can't use channel because of error {e}");
+        }
+    }
+}
 #[tokio::main]
 async fn main() {
     let mut socket = ClientStreamHandler::connect("127.0.0.1:8080")
         .await
         .unwrap();
-    let mut console_input = ConsoleInput {
-        buffer: String::new(),
-    };
-
+    let (tx, mut rx): (Sender<MqttMessage>, Receiver<MqttMessage>) = mpsc::channel(1);
+    tokio::spawn(console_input_handle(tx));
     loop {
         tokio::select! {
-            input =console_input.pop() => {
+            Some(input) = rx.recv() => {
                  match input{
                     MqttMessage::Publish{topic, qos, message} => {
                         let data = bincode::serialize(&MqttMessage::pub_message(&topic, qos,&message)).unwrap();
-                        println!("Pub herre");
+
                         if let Err(e) = socket.send(data).await{
                             println!("Error : {e}");
                         }
@@ -32,10 +42,16 @@ async fn main() {
                             println!("Error : {e}");
                         }
                     },
+                    MqttMessage::Disconnect => {
+                        let data = bincode::serialize(&MqttMessage::Disconnect).unwrap();
+                        if let Err(e) = socket.send(data).await{
+                            println!("Error : {e}");
+                        }
+                        break;
+                    },
                     _ => println!("Invalid command"),
                  }
-                }
-            ,
+                },
             _ = sleep(Duration::from_secs(30)) => {
                 println!("Start send ping to mqtt broker");
                 let ping_request = bincode::serialize(&MqttMessage::Ping).unwrap();
@@ -73,7 +89,7 @@ async fn main() {
                         MqttMessage::Subscribe { topic } => {
                             println!("Successfully subscribe to topic: {topic}");
                         },
-                        _ => todo!(),
+                        _ => println!("Invalid message"),
                      }
                  }
             }
