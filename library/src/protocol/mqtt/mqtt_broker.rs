@@ -1,9 +1,5 @@
 use crate::message_processor::MqttMessage;
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::format,
-    io,
-};
+use std::{collections::HashMap, io};
 pub use tokio::sync::mpsc::{Receiver, Sender};
 
 pub enum BrokerMessage {
@@ -22,6 +18,31 @@ pub enum BrokerMessage {
     Disconnect {
         id: usize,
     },
+}
+
+impl BrokerMessage {
+    pub fn pub_message(topic: &String, qos: u8, message: &String) -> Self {
+        BrokerMessage::Publish {
+            topic: topic.to_string(),
+            message: message.to_string(),
+            qos,
+        }
+    }
+
+    pub fn sub(id: usize, topic: &String) -> Self {
+        BrokerMessage::Subscribe {
+            id,
+            topic: topic.to_string(),
+        }
+    }
+
+    pub fn ping(id: usize) -> Self {
+        BrokerMessage::Disconnect { id }
+    }
+
+    pub fn disconnect(id: usize) -> Self {
+        BrokerMessage::Disconnect { id }
+    }
 }
 
 pub struct Broker {

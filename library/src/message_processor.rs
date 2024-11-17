@@ -16,3 +16,19 @@ pub enum MqttMessage {
     Ping,
     Disconnect,
 }
+
+impl MqttMessage {
+    pub fn pub_message(topic: &String, qos: u8, message: &String) -> Self {
+        MqttMessage::Publish {
+            topic: topic.to_string(),
+            qos,
+            message: message.to_string(),
+        }
+    }
+
+    pub fn sub(topic: &String) -> Self {
+        MqttMessage::Subscribe {
+            topic: topic.to_string(),
+        }
+    }
+}

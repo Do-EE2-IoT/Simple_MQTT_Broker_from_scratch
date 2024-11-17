@@ -1,7 +1,4 @@
-use std::net::SocketAddr;
 pub use tokio;
-use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
-use tokio::net::{TcpListener, TcpStream};
 
 pub mod server {
     use std::net::SocketAddr;
@@ -42,10 +39,9 @@ pub mod server {
 }
 
 pub mod client {
-    use std::net::SocketAddr;
     pub use tokio;
     use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
-    use tokio::net::{TcpListener, TcpStream};
+    use tokio::net::TcpStream;
 
     pub struct ClientStreamHandler {
         pub socket: TcpStream,
@@ -62,7 +58,7 @@ pub mod client {
             Ok(())
         }
 
-        pub async fn read(&mut self) -> io::Result<Vec<u8>>{
+        pub async fn read(&mut self) -> io::Result<Vec<u8>> {
             let mut buf: Vec<u8> = vec![0; 256];
             let size = self.socket.read(&mut buf).await?;
             buf.truncate(size);

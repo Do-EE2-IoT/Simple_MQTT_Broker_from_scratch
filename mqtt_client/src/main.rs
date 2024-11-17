@@ -30,6 +30,5 @@ async fn main() {
         sleep(Duration::from_secs(2)).await;
 
         socket.send(data).await.unwrap();
-       
     }
 }
