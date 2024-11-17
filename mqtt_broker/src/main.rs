@@ -14,68 +14,65 @@ async fn client_handle(
     clientid: usize,
 ) -> io::Result<()> {
     loop {
-        tokio::select!(@{
-            start = {
-                tokio::macros::support::thread_rng_n(BRANCHES)
-            };
-            ()
-        }data = tcp.get_request() => {
-            match data {
-                Ok(data_from_client) => {
-                    if let Ok(data) = bincode::deserialize(&data_from_client){
-                        match data {
-                            MqttMessage::Subscribe {
-                                topic
-                            } => {
-                                tx_broker.send(BrokerMessage::sub(clientid, &topic)).await.unwrap();
-                            },MqttMessage::Publish {
-                                topic,qos,message
-                            } => {
-                                tx_broker.send(BrokerMessage::pub_message(&topic,qos, &message)).await.unwrap();
-                            },
-                            MqttMessage::Ping => tx_broker.send(BrokerMessage::ping(clientid)).await.unwrap(),
-                            MqttMessage::Disconnect => tx_broker.send(BrokerMessage::disconnect(clientid)).await.unwrap(),
+        tokio::select! {
+                data = tcp.get_request() => {
+                match data {
+                    Ok(data_from_client) => {
+                        if let Ok(data) = bincode::deserialize(&data_from_client){
+                            match data {
+                                MqttMessage::Subscribe {
+                                    topic
+                                } => {
+                                    tx_broker.send(BrokerMessage::sub(clientid, &topic)).await.unwrap();
+                                },MqttMessage::Publish {
+                                    topic,qos,message
+                                } => {
+                                    tx_broker.send(BrokerMessage::pub_message(&topic,qos, &message)).await.unwrap();
+                                },
+                                MqttMessage::Ping => tx_broker.send(BrokerMessage::ping(clientid)).await.unwrap(),
+                                MqttMessage::Disconnect => tx_broker.send(BrokerMessage::disconnect(clientid)).await.unwrap(),
 
+                            }
+                        }else {
+                            println!("Can't deserialize message from client");
                         }
-                    }else {
-                        println!("Can't deserialize message from client");
-                    }
-                },Err(_) => {
-                    println!("Client {clientid} disconnected");
-                    break;
-                },
-            }
-        },data = rx_client.recv() => {
-            match data {
-                Some(MqttMessage::Subscribe {
-                    topic
-                }) => {
-                        let data = bincode::serialize(&MqttMessage::Subscribe {
+                    },Err(_) => {
+                        println!("Client {clientid} disconnected");
+                        break;
+                    },
+                }
+            },data = rx_client.recv() => {
+                match data {
+                    Some(MqttMessage::Subscribe {
                         topic
-                    }).unwrap();
-                    if let Err(_e) = tcp.respond(data).await {
-                        println!("Can't send sub ack to client {clientid}");
-                    }
-                },Some(MqttMessage::Publish {
-                    topic,qos,message
-                }) => {
-                    let data = bincode::serialize(&MqttMessage::Publish {
-                        topic,qos,message
-                    }).unwrap();
-                    if let Err(_e) = tcp.respond(data).await {
-                        println!("Can't publish to client {clientid}");
-                    }
-                },Some(MqttMessage::Ping) => {
-                    let data = bincode::serialize(&MqttMessage::Ping).unwrap();
-                    if let Err(_e) = tcp.respond(data).await {
-                        println!("Can't send to client");
+                    }) => {
+                            let data = bincode::serialize(&MqttMessage::Subscribe {
+                            topic
+                        }).unwrap();
+                        if let Err(_e) = tcp.respond(data).await {
+                            println!("Can't send sub ack to client {clientid}");
                         }
-                },
-                Some(MqttMessage::Disconnect) => todo!()
-                ,None => todo!()
-                ,
+                    },Some(MqttMessage::Publish {
+                        topic,qos,message
+                    }) => {
+                        let data = bincode::serialize(&MqttMessage::Publish {
+                            topic,qos,message
+                        }).unwrap();
+                        if let Err(_e) = tcp.respond(data).await {
+                            println!("Can't publish to client {clientid}");
+                        }
+                    },Some(MqttMessage::Ping) => {
+                        let data = bincode::serialize(&MqttMessage::Ping).unwrap();
+                        if let Err(_e) = tcp.respond(data).await {
+                            println!("Can't send to client");
+                            }
+                    },
+                    Some(MqttMessage::Disconnect) => todo!()
+                    ,None => todo!()
+                    ,
+                }
             }
-        })
+        }
     }
     Ok(())
 }
