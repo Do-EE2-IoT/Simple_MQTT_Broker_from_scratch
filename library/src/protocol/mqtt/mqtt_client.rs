@@ -80,6 +80,7 @@ impl Client {
     }
 
     pub async fn ping_broker(&mut self) -> Result<String, String> {
+        println!();
         println!("Start send ping to mqtt broker");
         let ping_request = bincode::serialize(&MqttMessage::Ping).unwrap();
         if let Err(e) = self.socket.send(ping_request).await {
@@ -104,16 +105,20 @@ impl Client {
     pub async fn read_broker_message(&mut self) {
         if let Ok(data) = self.socket.read().await {
             let data: MqttMessage = bincode::deserialize(&data).unwrap();
-                     match data{
-                        MqttMessage::Publish{topic, qos, message} => {
-                            println!("topic: {topic}, qos: {qos}");
-                            println!("message: {message}");
-                        },
-                        MqttMessage::Subscribe { topic } => {
-                            println!("Successfully subscribe to topic: {topic}");
-                        },
-                        _ => println!("Invalid message"),
-                     }
+            match data {
+                MqttMessage::Publish {
+                    topic,
+                    qos,
+                    message,
+                } => {
+                    println!("topic: {topic}, qos: {qos}");
+                    println!("message: {message}");
+                }
+                MqttMessage::Subscribe { topic } => {
+                    println!("Successfully subscribe to topic: {topic}");
+                }
+                _ => println!("Invalid message"),
+            }
         }
     }
 }
