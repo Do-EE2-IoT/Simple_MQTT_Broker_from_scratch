@@ -60,12 +60,17 @@ impl Broker {
         }
     }
 
-    pub fn add_subscriber(&mut self, client_id: usize, topic: &str) -> io::Result<()> {
+    pub async fn add_subscriber(&mut self, client_id: usize, topic: &str) -> io::Result<()> {
         println!("Client {client_id} subscribe topic {topic}");
         self.subscriber
             .entry(topic.to_string())
             .or_default()
             .push(client_id);
+        if let Some(tx_client) = self.clients.get(&client_id) {
+            if let Err(e) = tx_client.send(MqttMessage::sub(&topic.to_string())).await {
+                println!("Error sending: {e}");
+            }
+        }
         Ok(())
     }
     pub fn add_client(
@@ -77,4 +82,49 @@ impl Broker {
         Ok(())
     }
 
+    pub async fn publish_to_subscriber(
+        &mut self,
+        topic: &str,
+        qos: u8,
+        message: &str,
+    ) -> io::Result<()> {
+        println!("Client publishing to topic '{topic}': {message} - qos{qos}");
+        if let Some(clients) = self.subscriber.get(topic) {
+            for id in clients {
+                if let Some(tx_client) = self.clients.get(id) {
+                    if let Err(e) = tx_client
+                        .send(MqttMessage::pub_message(
+                            &topic.to_string(),
+                            qos,
+                            &message.to_string(),
+                        ))
+                        .await
+                    {
+                        println!("{e}");
+                    }
+                }
+            }
+        } else {
+            println!("No clients subscribed to topic '{topic}'");
+        }
+
+        Ok(())
+    }
+
+    pub async fn send_pingres_to_client(&mut self, id: usize) -> io::Result<()> {
+        println!("Received Ping from client {id}");
+        if let Some(tx_client) = self.clients.get(&id) {
+            if let Err(e) = tx_client.send(MqttMessage::Ping).await{
+                println!("Can't send ping to dedicate client");
+                println!("Error: {e}");
+            }
+        }
+        Ok(())
+    }
+
+    pub async fn remove_client(&mut self, id: usize) -> io::Result<()>{
+        println!("Client {id} disconnected");
+        self.clients.remove(&id);
+        Ok(())
+    }
 }

@@ -72,10 +72,10 @@ impl Input for ConsoleInput {
         let stdin = tokio::io::stdin();
         let mut reader = BufReader::new(stdin);
         loop {
+            self.buffer.clear();
             match reader.read_line(&mut self.buffer).await {
                 Ok(_) => match MqttMessage::from_str(self.buffer.trim_end()) {
                     Ok(item) => {
-                        self.buffer.clear();
                         break Ok(item);
                     }
                     Err(err) => {

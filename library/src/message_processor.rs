@@ -15,6 +15,7 @@ pub enum MqttMessage {
     },
     Ping,
     Disconnect,
+    Pubackqos1,
 }
 
 impl MqttMessage {
@@ -31,4 +32,5 @@ impl MqttMessage {
             topic: topic.to_string(),
         }
     }
+    
 }
