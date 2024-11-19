@@ -16,6 +16,9 @@ pub enum MqttMessage {
     Ping,
     Disconnect,
     Pubackqos1,
+    Pubrec,
+    Pubrel,
+    Pubcomplete, 
 }
 
 impl MqttMessage {

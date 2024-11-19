@@ -1,4 +1,5 @@
 use crate::message_processor::MqttMessage;
+use crate::tcp_stream_handler::server::ServerStreamHandler;
 use std::{collections::HashMap, io};
 pub use tokio::sync::mpsc::{Receiver, Sender};
 
@@ -45,13 +46,34 @@ impl BrokerMessage {
     }
 }
 
-pub struct Broker {
+pub struct BrokerManager {
     pub subscriber: HashMap<String, Vec<usize>>,
     pub clients: HashMap<usize, Sender<MqttMessage>>,
     pub rx_broker: Receiver<BrokerMessage>,
 }
 
-impl Broker {
+pub struct BrokerStream {
+    pub stream: ServerStreamHandler,
+}
+
+impl BrokerStream {
+    pub fn new(stream: ServerStreamHandler) -> Self {
+        Self { stream }
+    }
+
+    pub async fn send(&mut self, mqtt_message: &MqttMessage) -> io::Result<()> {
+        let data = bincode::serialize(mqtt_message).unwrap();
+        if let Err(e) = self.stream.respond(data).await {
+            println!("Can't send puback for client {e}");
+        }
+
+        Ok(())
+    }
+
+
+       
+}
+impl BrokerManager {
     pub fn new(rx_broker: Receiver<BrokerMessage>) -> Self {
         Self {
             subscriber: HashMap::new(),
@@ -114,7 +136,7 @@ impl Broker {
     pub async fn send_pingres_to_client(&mut self, id: usize) -> io::Result<()> {
         println!("Received Ping from client {id}");
         if let Some(tx_client) = self.clients.get(&id) {
-            if let Err(e) = tx_client.send(MqttMessage::Ping).await{
+            if let Err(e) = tx_client.send(MqttMessage::Ping).await {
                 println!("Can't send ping to dedicate client");
                 println!("Error: {e}");
             }
@@ -122,7 +144,7 @@ impl Broker {
         Ok(())
     }
 
-    pub async fn remove_client(&mut self, id: usize) -> io::Result<()>{
+    pub async fn remove_client(&mut self, id: usize) -> io::Result<()> {
         println!("Client {id} disconnected");
         self.clients.remove(&id);
         Ok(())

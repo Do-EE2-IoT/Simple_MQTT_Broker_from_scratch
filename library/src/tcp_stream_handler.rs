@@ -59,7 +59,7 @@ pub mod client {
         }
 
         pub async fn read(&mut self) -> io::Result<Vec<u8>> {
-            let mut buf: Vec<u8> = vec![0; 256];
+            let mut buf: Vec<u8> = vec![0; 1024];
             let size = self.socket.read(&mut buf).await?;
             buf.truncate(size);
             Ok(buf.to_vec())

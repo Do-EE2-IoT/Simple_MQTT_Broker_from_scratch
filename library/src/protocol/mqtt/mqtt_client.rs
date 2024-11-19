@@ -59,6 +59,59 @@ impl Client {
                     }
                 }
             }
+        } else if qos == 2 {
+            let mut count_send = 0;
+            loop {
+                match timeout(Duration::from_millis(100), self.socket.read()).await {
+                    Ok(Ok(data)) => {
+                        let pubrec: MqttMessage = bincode::deserialize(&data).unwrap();
+                        if pubrec == MqttMessage::Pubrec {
+                            println!("Get PUBREC from broker!");
+                            println!("Prepare send PUBREL for broker");
+                            let pubrel = bincode::serialize(&MqttMessage::Pubrel).unwrap();
+                            if let Err(e) = self.socket.send(pubrel).await {
+                                println!("Can't send PUBREL to broker ");
+                                println!("Error: {e}");
+                            }
+                            match timeout(Duration::from_millis(100), self.socket.read()).await {
+                                Ok(Ok(data)) => {
+                                    let pubcom: MqttMessage = bincode::deserialize(&data).unwrap();
+                                    if pubcom == MqttMessage::Pubcomplete {
+                                        println!("Get PUBCOMP from broker ");
+                                        println!(
+                                            "Send publish successfuly to broker server with qos 2"
+                                        );
+                                        break;
+                                    }
+                                }
+                                Ok(Err(_)) => println!("Can't read PUBCOM from broker"),
+                                Err(_) => {}
+                            }
+                            break;
+                        } else {
+                            println!("Get broker another broker message");
+                        }
+                    }
+
+                    Ok(Err(_)) => println!("Can't read anything"),
+                    Err(_e) => {
+                        count_send += 1;
+                        if count_send > 5 {
+                            break;
+                        }
+                        let data = bincode::serialize(&MqttMessage::pub_message(
+                            &topic.to_string(),
+                            qos,
+                            &message.to_string(),
+                        ))
+                        .unwrap();
+
+                        if let Err(err) = self.socket.send(data).await {
+                            println!("Error : {err}");
+                        }
+                    }
+                }
+            }
         }
         Ok(())
     }
@@ -80,8 +133,7 @@ impl Client {
     }
 
     pub async fn ping_broker(&mut self) -> Result<String, String> {
-        println!();
-        println!("Start send ping to mqtt broker");
+        //println!("Start send ping to mqtt broker");
         let ping_request = bincode::serialize(&MqttMessage::Ping).unwrap();
         if let Err(e) = self.socket.send(ping_request).await {
             println!("Cannot ping because of error {e}");
@@ -97,7 +149,7 @@ impl Client {
                 }
             }
 
-            Ok(Err(_)) => Err("Can't read anything".to_string()),
+            Ok(Err(_)) => Err("Can't read ping from broker".to_string()),
             Err(e) => Err(format!("Can't send ping to server with {e}")),
         }
     }
