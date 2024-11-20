@@ -28,15 +28,15 @@ async fn main() {
     tokio::spawn(console_input_handle(tx));
     loop {
         tokio::select! {
-            Some(input) = rx.recv() => {
+              Some(input) = rx.recv() => {
                  match input{
                     MqttMessage::Publish{topic, qos, message} => {
                       if let Err(e) = client.publish(&topic, qos, &message).await{
                         println!("{e}");
                       }
                     },
-                    MqttMessage::Subscribe{topic} =>{
-                       if let Err(e) = client.subscribe(&topic).await{
+                    MqttMessage::Subscribe{topic, qos} =>{
+                       if let Err(e) = client.subscribe(&topic, qos).await{
                         println!("{e}");
                        }
                     },

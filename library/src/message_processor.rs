@@ -12,13 +12,14 @@ pub enum MqttMessage {
 
     Subscribe {
         topic: String,
+        qos: u8,
     },
     Ping,
     Disconnect,
     Pubackqos1,
     Pubrec,
     Pubrel,
-    Pubcomplete, 
+    Pubcomplete,
 }
 
 impl MqttMessage {
@@ -30,10 +31,10 @@ impl MqttMessage {
         }
     }
 
-    pub fn sub(topic: &String) -> Self {
+    pub fn sub(topic: &String, qos: u8) -> Self {
         MqttMessage::Subscribe {
             topic: topic.to_string(),
+            qos,
         }
     }
-    
 }

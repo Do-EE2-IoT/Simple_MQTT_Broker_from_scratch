@@ -116,8 +116,8 @@ impl Client {
         Ok(())
     }
 
-    pub async fn subscribe(&mut self, topic: &str) -> io::Result<()> {
-        let data = bincode::serialize(&MqttMessage::sub(&topic.to_string())).unwrap();
+    pub async fn subscribe(&mut self, topic: &str, qos: u8) -> io::Result<()> {
+        let data = bincode::serialize(&MqttMessage::sub(&topic.to_string(), qos)).unwrap();
         if let Err(e) = self.socket.send(data).await {
             println!("Error : {e}");
         }
@@ -166,8 +166,8 @@ impl Client {
                     println!("topic: {topic}, qos: {qos}");
                     println!("message: {message}");
                 }
-                MqttMessage::Subscribe { topic } => {
-                    println!("Successfully subscribe to topic: {topic}");
+                MqttMessage::Subscribe { topic , qos} => {
+                    println!("Successfully subscribe to topic: {topic} and qos {qos}");
                 }
                 _ => println!("Invalid message"),
             }

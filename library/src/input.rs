@@ -52,11 +52,12 @@ impl FromStr for MqttMessage {
                 }
 
                 "sub" => {
-                    if parts.len() < 2 {
-                        Err("Need at least 2 input: sub topic".to_string())
+                    if parts.len() < 3 {
+                        Err("Need at least 3 input: sub topic qos".to_string())
                     } else {
                         let topic = parts[1].to_string();
-                        Ok(MqttMessage::sub(&topic))
+                        let qos = parts[2].parse::<u8>().unwrap();
+                        Ok(MqttMessage::sub(&topic, qos))
                     }
                 }
                 "disconnect" => Ok(MqttMessage::Disconnect),

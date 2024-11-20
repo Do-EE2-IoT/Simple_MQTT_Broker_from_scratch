@@ -7,11 +7,13 @@ pub enum BrokerMessage {
     Subscribe {
         id: usize,
         topic: String,
+        qos: u8,
     },
     Publish {
         topic: String,
         message: String,
         qos: u8,
+        id:usize
     },
     Ping {
         id: usize,
@@ -22,18 +24,20 @@ pub enum BrokerMessage {
 }
 
 impl BrokerMessage {
-    pub fn pub_message(topic: &String, qos: u8, message: &String) -> Self {
+    pub fn pub_message(topic: &String, qos: u8, message: &String, id: usize) -> Self {
         BrokerMessage::Publish {
             topic: topic.to_string(),
             message: message.to_string(),
             qos,
+            id,
         }
     }
 
-    pub fn sub(id: usize, topic: &String) -> Self {
+    pub fn sub(id: usize, topic: &String, qos: u8) -> Self {
         BrokerMessage::Subscribe {
             id,
             topic: topic.to_string(),
+            qos,
         }
     }
 
@@ -69,9 +73,6 @@ impl BrokerStream {
 
         Ok(())
     }
-
-
-       
 }
 impl BrokerManager {
     pub fn new(rx_broker: Receiver<BrokerMessage>) -> Self {
@@ -82,14 +83,22 @@ impl BrokerManager {
         }
     }
 
-    pub async fn add_subscriber(&mut self, client_id: usize, topic: &str) -> io::Result<()> {
-        println!("Client {client_id} subscribe topic {topic}");
+    pub async fn add_subscriber(
+        &mut self,
+        client_id: usize,
+        topic: &str,
+        qos: u8,
+    ) -> io::Result<()> {
+        println!("Client {client_id} subscribe topic {topic} with qos {qos}");
         self.subscriber
             .entry(topic.to_string())
             .or_default()
             .push(client_id);
         if let Some(tx_client) = self.clients.get(&client_id) {
-            if let Err(e) = tx_client.send(MqttMessage::sub(&topic.to_string())).await {
+            if let Err(e) = tx_client
+                .send(MqttMessage::sub(&topic.to_string(), qos))
+                .await
+            {
                 println!("Error sending: {e}");
             }
         }
@@ -109,8 +118,9 @@ impl BrokerManager {
         topic: &str,
         qos: u8,
         message: &str,
+        clientid: usize
     ) -> io::Result<()> {
-        println!("Client publishing to topic '{topic}': {message} - qos{qos}");
+        println!("Client ID {clientid} publishing to topic '{topic}': {message} - qos{qos}");
         if let Some(clients) = self.subscriber.get(topic) {
             for id in clients {
                 if let Some(tx_client) = self.clients.get(id) {

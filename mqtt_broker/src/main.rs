@@ -22,11 +22,11 @@ async fn client_handle(
                     Ok(data_from_client) => {
                         if let Ok(data) = bincode::deserialize(&data_from_client) {
                             match data {
-                                MqttMessage::Subscribe { topic } => {
-                                    tx_broker.send(BrokerMessage::sub(clientid, &topic)).await.unwrap();
+                                    MqttMessage::Subscribe { topic, qos } => {
+                                    tx_broker.send(BrokerMessage::sub(clientid, &topic, qos)).await.unwrap();
                                 },
                                 MqttMessage::Publish { topic, qos, message } => {
-                                    tx_broker.send(BrokerMessage::pub_message(&topic, qos, &message)).await.unwrap();
+                                    tx_broker.send(BrokerMessage::pub_message(&topic, qos, &message, clientid)).await.unwrap();
                                     if qos == 1 {
                                         broker_stream.send(&MqttMessage::Pubackqos1).await?;
                                     }else if qos == 2 {
@@ -75,8 +75,9 @@ async fn client_handle(
             },
             data = rx_client.recv() => {
                 match data {
-                    Some(MqttMessage::Subscribe { topic }) => {
-                        broker_stream.send(&MqttMessage::Subscribe { topic }).await?;
+
+                    Some(MqttMessage::Subscribe { topic, qos }) => {
+                        broker_stream.send(&MqttMessage::Subscribe { topic, qos }).await?;
                     },
                     Some(MqttMessage::Publish { topic, qos, message }) => {
                         broker_stream.send(&MqttMessage::Publish { topic, qos, message }).await?;
@@ -93,6 +94,7 @@ async fn client_handle(
                     Some(MqttMessage::Pubcomplete) =>{} ,
                     None => (),
                 }
+
             }
         }
     }
@@ -122,13 +124,13 @@ async fn main() {
             },
             Some(broker_message) = broker.rx_broker.recv() => {
                 match broker_message {
-                    BrokerMessage::Subscribe { id, topic } => {
-                        if let Err(e) = broker.add_subscriber(id, &topic).await {
+                    BrokerMessage::Subscribe { id, topic, qos } => {
+                        if let Err(e) = broker.add_subscriber(id, &topic, qos).await {
                             eprintln!("Failed to add subscriber: {e}");
                         }
                     },
-                    BrokerMessage::Publish { topic, message, qos } => {
-                        if let Err(e) = broker.publish_to_subscriber(&topic, qos, &message).await{
+                    BrokerMessage::Publish { topic, message, qos, id } => {
+                        if let Err(e) = broker.publish_to_subscriber(&topic, qos, &message, id).await{
                               println!("Can't publish to subscriber");
                               println!("{e}");
                         }
